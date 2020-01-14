@@ -83,8 +83,14 @@ def unify_data(df,
                features_to_drop=[], 
                missing_values="drop", 
                drop_first=False):
-     # Sort by date to calculate ELO
+    
+    # Sort by date to calculate ELO
     X = df.sort_values(by='Date')
+    # Calculating Elo
+    r = compute_elo_rankings(X)
+    X['WEloCalc'] = r['elo_winner']
+    X['LEloCalc'] = r['elo_loser']
+    X['PElo'] = r['proba_elo']
     
     # Drop unuseful columns
     features_to_drop += ['ATP', 'Location', 'Tournament', 'Date', 'Comment', 
@@ -148,10 +154,6 @@ def unify_data(df,
     
     # Generate new columns
     #X['GreaterRank'] = (X['WRank'] < X['LRank']).astype(int)
-    r = compute_elo_rankings(full_dataset)
-    X['WEloCalc'] = r['elo_winner']
-    X['LEloCalc'] = r['elo_loser']
-    X['PElo'] = r['proba_elo']
     
     return X
     
