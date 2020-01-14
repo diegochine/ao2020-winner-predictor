@@ -92,27 +92,45 @@ def preprocess_data(min_date=2011,
         raise ValueError('Wrong parameter: missing_values')
 
     # Convert ordinal features to int (higher value means more important)
-    series = ['ATP250', 'ATP500', 'Masters 1000', 'Masters Cup', 'Grand Slam']
-    series2int = {s: i for i, s in enumerate(series)}
-    rounds2int = {'1st Round': 0,
-                  '2nd Round': 1,
-                  '3rd Round': 2,
-                  '4th Round': 3,
-                  'Round Robin': 4,
-                  'Quarterfinals': 5,
-                  'Semifinals': 6,
-                  'The Final': 7,
-                 }
-    X = X.replace({'Round': rounds2int, 'Series': series2int})
+    conversion_dict = {}
+    if 'Series' not in features_to_drop:
+        series = ['ATP250', 'ATP500', 'Masters 1000', 'Masters Cup', 'Grand Slam']
+        series2int = {s: i for i, s in enumerate(series)}
+        conversion_dict['Series'] = series2int
+        
+    if 'Round' not in features_to_drop:
+        rounds2int = {'1st Round': 0,
+                      '2nd Round': 1,
+                      '3rd Round': 2,
+                      '4th Round': 3,
+                      'Round Robin': 4,
+                      'Quarterfinals': 5,
+                      'Semifinals': 6,
+                      'The Final': 7,
+                     }
+        conversion_dict['Round'] = rounds2int
     
     # Convert categorical (binary) fields to int
-    X = X.replace({'Court': {'Outdoor': 0, 'Indoor': 1}, 
-                   'WHand': {'R': 0, 'L': 1}, 
-                   'LHand': {'R': 0, 'L': 1}})
-    X.astype({'WBHand': int, 'LBHand': int})
+    if 'Court' not in features_to_drop:
+        conversion_dict['Court'] = {'Outdoor': 0, 'Indoor': 1}
+        
+    if 'WHand' not in features_to_drop:
+        conversion_dict['WHand'] = {'R': 0, 'L': 1}
+    
+    if 'LHand' not in features_to_drop:
+        conversion_dict['LHand'] = {'R': 0, 'L': 1}
+    
+    X = X.replace(conversion_dict)
+    
+    if 'WBHand' not in features_to_drop:
+        X['WBHand'] = X['WBHand'].astype(int)
+       
+    if 'LBHand' not in features_to_drop:
+        X['LBHand'] = X['LBHand'].astype(int)
     
     # One hot encode categorical features into binary features
-    X = pd.get_dummies(X, prefix=['Surface_'], columns=['Surface'], drop_first=drop_first)
+    if 'Surface' not in features_to_drop:
+        X = pd.get_dummies(X, prefix=['Surface_'], columns=['Surface'], drop_first=drop_first)
     
     # Generate labels
     Y = np.concatenate([np.ones(X.shape[0], dtype=int), np.zeros(X.shape[0], dtype=int)])
@@ -138,3 +156,4 @@ def preprocess_data(min_date=2011,
                           'MaxW':'MaxP1', 'MaxL':'MaxP2', 
                           'AvgW':'AvgP1', 'AvgL':'AvgP2'})
     return X, Y
+

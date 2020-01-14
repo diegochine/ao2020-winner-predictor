@@ -95,7 +95,7 @@ def build_decision_tree(X_train, Y_train, X_valid, Y_valid, draw_graphs=True, dr
                                    filled=True, rounded=True, special_characters=True)  
         graph = graphviz.Source(dot_data)
         display(graph)
-    return dt, best_params
+    return dt
 
 
 @timeit
@@ -125,8 +125,7 @@ def build_bagging_classifier(X_train, Y_train, X_valid, Y_valid, draw_graphs=Tru
     print('Max samples:', max_samples)
     print('Tree criterion:', criterion)
     
-    dt = DecisionTreeClassifier(criterion=criterion)
-    bagged_dt = BaggingClassifier(dt, 
+    bagged_dt = BaggingClassifier(DecisionTreeClassifier(criterion=criterion), 
                                   bootstrap=bootstrap,
                                   n_estimators=n_est, 
                                   max_samples=max_samples)
@@ -147,46 +146,65 @@ def build_bagging_classifier(X_train, Y_train, X_valid, Y_valid, draw_graphs=Tru
         ax.grid()
         ax.legend()
     
-    return bagged_dt, best_params
+    return bagged_dt
 
 @timeit
 def build_adaboost(X_train, Y_train, X_valid, Y_valid, draw_graphs=True):
-    scores = []
-    for n_est in range(50, 501, 50):
-        for learning_rate in (0.50, 0.75, 1.0, 1.5):
+    scores = {}
+    n_estimators = list(range(50, 501, 50))
+    learning_rates = (0.1, 0.25, 0.50, 0.75, 1.0)
+    for n_est in n_estimators:
+        for learning_rate in learning_rates:
             for criterion in ('gini', 'entropy'):
-                for depth in range(3, 10):
-                    #for leaves in range(5, 100, 25):
-                    dt = DecisionTreeClassifier(#max_leaf_nodes=leaves,
-                                                criterion=criterion,
-                                                max_depth=depth)
-                    boosted_dt = AdaBoostClassifier(dt,
-                                                    n_estimators=n_est,
-                                                    learning_rate=learning_rate)
-                    boosted_dt.fit(X_train, Y_train)
-                    valid_acc = round(accuracy_score(y_true=Y_valid, y_pred=boosted_dt.predict(X_valid)), 3)
-                    scores += [(valid_acc, n_est, learning_rate, criterion, depth)]
+                boosted_dt = AdaBoostClassifier(DecisionTreeClassifier(criterion=criterion),
+                                                n_estimators=n_est,
+                                                learning_rate=learning_rate)
+                boosted_dt.fit(X_train, Y_train)
+                train_acc = round(accuracy_score(y_true=Y_train, y_pred=boosted_dt.predict(X_train)), 3)
+                valid_acc = round(accuracy_score(y_true=Y_valid, y_pred=boosted_dt.predict(X_valid)), 3)
+                scores[(n_est, learning_rate, criterion)] = (valid_acc, train_acc)
                     
-    best = max(scores)
-    acc, n_est, learning_rate, criterion, depth = best
-    print('Max accuracy on validation set:', acc)
+    best_acc = max(scores.values())
+    best_params = [params for params, acc in scores.items() if acc == best_acc][0]
+    n_est, learning_rate, criterion = best_params
+    print('Max accuracy (validation, training):', best_acc)
     print('N. estimators:', n_est)
     print('Learning rate:', learning_rate)
-    #print('Tree max leaves:', leaves)
-    print('Tree max depth:', depth)
     print('Tree criterion:', criterion)
-    dt = DecisionTreeClassifier(#max_leaf_nodes=leaves,
-                                criterion=criterion,
-                                max_depth=depth)
-    boosted_dt = AdaBoostClassifier(dt,
+    
+    boosted_dt = AdaBoostClassifier(DecisionTreeClassifier(criterion=criterion),
                                     n_estimators=n_est,
                                     learning_rate=learning_rate)
     boosted_dt.fit(pd.concat([X_train, X_valid]), np.concatenate([Y_train, Y_valid]))
     
     if draw_graphs:
-        pass
-    
-    return boosted_dt, best
+        fig, (est_ax, rate_ax) = plt.subplots(1, 2, figsize=(12, 6))
+        # plotting acc graph for n_estimators hyperparameter
+        errors = []
+        for tmp_n_est in n_estimators:
+            valid_acc, train_acc = scores[(tmp_n_est, learning_rate, criterion)]
+            errors += [ [tmp_n_est, valid_acc, train_acc] ]
+        errors = np.array(errors)
+        est_ax.plot(errors[:,0], errors[:,1], "x:", label="Validation")
+        est_ax.plot(errors[:,0], errors[:,2], "o-", label="Train")
+        est_ax.set_ylabel("Accuracy")
+        est_ax.set_xlabel("Number of estimators")
+        est_ax.grid()
+        est_ax.legend()
+        
+        # plotting acc graph for learning_rate hyperparameter
+        errors = []
+        for tmp_learning_rate in learning_rates:
+            valid_acc, train_acc = scores[(n_est, tmp_learning_rate, criterion)]
+            errors += [ [tmp_learning_rate, valid_acc, train_acc] ]
+        errors = np.array(errors)
+        rate_ax.plot(errors[:,0], errors[:,1], "x:", label="Validation")
+        rate_ax.plot(errors[:,0], errors[:,2], "o-", label="Train")
+        rate_ax.set_ylabel("Accuracy")
+        rate_ax.set_xlabel("Number of estimators")
+        rate_ax.grid()
+        rate_ax.legend()
+    return boosted_dt
 
 
 @timeit
@@ -210,7 +228,7 @@ def build_random_forest(X_train, Y_train, X_valid, Y_valid, draw_graphs=True):
     best_acc = max(scores.values())
     best_params = [params for params, acc in scores.items() if acc == best_acc][0]
     n_est, criterion, bootstrap, n_features = best_params
-    print('Max accuracy on validation set:', best_acc[0])
+    print('Max accuracy (validation, training):', best_acc)
     print('N. estimators:', n_est)
     print('Criterion:', criterion)
     print('Bootstrap:', bootstrap)
@@ -237,6 +255,6 @@ def build_random_forest(X_train, Y_train, X_valid, Y_valid, draw_graphs=True):
         ax.grid()
         ax.legend()
     
-    return rf, best_params
+    return rf
 
 
