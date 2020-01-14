@@ -149,7 +149,7 @@ def preprocess_data(min_date=2011,
     X = pd.concat((X, tmp))
     
     # Generate new columns
-    X['GreaterRank'] = (X['WRank'] < X['LRank']).astype(int)
+    #X['GreaterRank'] = (X['WRank'] < X['LRank']).astype(int)
     
     # Rename columns
     X = X.rename(columns={'WRank':'P1Rank', 'LRank':'P2Rank', 
