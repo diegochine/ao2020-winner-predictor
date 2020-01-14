@@ -21,7 +21,7 @@ def timeit(fun):
 def baseline_model(X, Y):
     # This model will always predict the winner as the player with the highest rank.
     # It's the lower bound on accuracy that we wish to improve
-    y_pred = (X['P1Rank'] > X['P2Rank']).astype(int)
+    y_pred = (X['WRank'] > X['LRank']).astype(int)
     accuracy = round((y_pred == Y).sum()/len(Y), 2)
     return accuracy
 
