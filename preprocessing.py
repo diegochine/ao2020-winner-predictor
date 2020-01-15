@@ -58,25 +58,25 @@ def compute_elo_rankings(data):
     Given the list on matches in chronological order, for each match, computes 
     the elo ranking of the 2 players at the beginning of the match
     """
-    print("Elo rankings computing...")
-    players=list(pd.Series(list(data.Winner)+list(data.Loser)).value_counts().index)
-    elo=pd.Series(np.ones(len(players))*1500,index=players)
-    ranking_elo=[(1500,1500)]
+    #print("Elo rankings computing...")
+    players = list(pd.Series(list(data.Winner) + list(data.Loser)).value_counts().index)
+    elo = pd.Series(np.ones(len(players))*1500,index=players)
+    ranking_elo = [(1500,1500)]
     for i in range(1,len(data)):
-        w=data.iloc[i-1,:].Winner
-        l=data.iloc[i-1,:].Loser
-        elow=elo[w]
-        elol=elo[l]
-        pwin=1 / (1 + 10 ** ((elol - elow) / 400))    
-        K_win=32
-        K_los=32
-        new_elow=elow+K_win*(1-pwin)
-        new_elol=elol-K_los*(1-pwin)
-        elo[w]=new_elow
-        elo[l]=new_elol
+        w = data.iloc[i-1,:].Winner
+        l = data.iloc[i-1,:].Loser
+        elow = elo[w]
+        elol = elo[l]
+        pwin = 1 / (1 + 10 ** ((elol - elow) / 400))    
+        K_win = 32
+        K_los = 32
+        new_elow = elow + K_win *(1-pwin)
+        new_elol = elol-K_los * (1-pwin)
+        elo[w] = new_elow
+        elo[l] = new_elol
         ranking_elo.append((elo[data.iloc[i,:].Winner],elo[data.iloc[i,:].Loser])) 
-    ranking_elo=pd.DataFrame(ranking_elo,columns=["elo_winner","elo_loser"])    
-    ranking_elo["proba_elo"]=1 / (1 + 10 ** ((ranking_elo["elo_loser"] - ranking_elo["elo_winner"]) / 400))   
+    ranking_elo = pd.DataFrame(ranking_elo,columns=["elo_winner","elo_loser"])    
+    ranking_elo["proba_elo"] = 1 / (1 + 10 ** ((ranking_elo["elo_loser"] - ranking_elo["elo_winner"]) / 400))   
     return ranking_elo
 
 def unify_data(df,
@@ -90,7 +90,7 @@ def unify_data(df,
     r = compute_elo_rankings(X)
     X['WEloCalc'] = r['elo_winner']
     X['LEloCalc'] = r['elo_loser']
-    X['PElo'] = r['proba_elo']
+    #X['PElo'] = r['proba_elo']
     
     # Drop unuseful columns
     features_to_drop += ['ATP', 'Location', 'Tournament', 'Date', 'Comment', 
@@ -153,7 +153,7 @@ def unify_data(df,
         X = pd.get_dummies(X, prefix=['Surface_'], columns=['Surface'], drop_first=drop_first)
     
     # Generate new columns
-    #X['GreaterRank'] = (X['WRank'] < X['LRank']).astype(int)
+    X['GreaterRank'] = (X['WRank'] < X['LRank']).astype(int)
     
     return X
     
@@ -162,7 +162,8 @@ def preprocess_data(min_date=2011,
                     max_date=2019,
                     features_to_drop=[], 
                     missing_values="drop", 
-                    drop_first=False):
+                    drop_first=False,
+                    labels="duplicate"):
     """
     Processes raw data and returns a tuple (X, Y) where X is the cleaned dataset and Y is the array of labels.
     """
@@ -173,24 +174,37 @@ def preprocess_data(min_date=2011,
     for year in range (min_date + 1, max_date + 1):
         filename = "data/" + str(year) + ".csv"
         df = pd.concat((df, pd.read_csv(filename, encoding='utf-8-sig', dtype=DATA_TYPES)))
-        
+
     X = unify_data(df, features_to_drop, missing_values, drop_first)
-   
-    # Generate labels
-    Y = np.concatenate([np.ones(X.shape[0], dtype=int), np.zeros(X.shape[0], dtype=int)])
+    X.index = np.array(range(0, X.shape[0]))
     
-    # Duplicate data with swapped columns
-    tmp = X.copy()
+    # Duplicate data with swapped columns or random swap
     cols_to_swap = ['WRank', 'LRank', 'MaxW', 'MaxL',  'AvgW',  'AvgL', 'WPts', 'LPts',
-                    'WElo', 'LElo', 'WSurfElo', 'LSurfElo', 'WHand', 'LHand', 'WBHand', 'LBHand']
+                    'WElo', 'LElo', 'WSurfElo', 'LSurfElo', 'WHand', 'LHand', 'WBHand', 'LBHand', 'WEloCalc', 'LEloCalc']
     cols_to_swap = [f for f in cols_to_swap if f not in features_to_drop]
     cols_swapped = ['LRank', 'WRank', 'MaxL', 'MaxW',  'AvgL',  'AvgW', 'LPts', 'WPts',
-                    'LElo', 'WElo', 'LSurfElo', 'WSurfElo', 'LHand', 'WHand', 'LBHand', 'WBHand']
+                    'LElo', 'WElo', 'LSurfElo', 'WSurfElo', 'LHand', 'WHand', 'LBHand', 'WBHand', 'LEloCalc', 'WEloCalc']
     cols_swapped = [f for f in cols_swapped if f not in features_to_drop]
     
-    tmp[cols_to_swap] = tmp[cols_swapped]
-    tmp.index = np.array(range(X.shape[0] + 1, X.shape[0] * 2 + 1))
-    X = pd.concat((X, tmp))
+    # Generate labels
+    if labels == 'duplicate':
+        # swaps winner data with loser data on the whole dataset (duplicates the dataset)
+        Y = np.concatenate([np.ones(X.shape[0], dtype=int), np.zeros(X.shape[0], dtype=int)])
+        tmp = X.copy()
+        tmp[cols_to_swap] = tmp[cols_swapped]
+        tmp['GreaterRank'] = 1 - tmp['GreaterRank']
+        tmp.index = np.array(range(X.shape[0] + 1, X.shape[0] * 2 + 1))
+        X = pd.concat((X, tmp))
+    elif labels == 'random':
+        # swaps winner data with loser data for a random number of entries (dataset size doesn't change)
+        from random import randint
+        Y = np.ones(X.shape[0], dtype=int)
+        random_rows = X.sample(randint(X.shape[0]//3, X.shape[0]//3*2))
+        random_rows[cols_to_swap] = random_rows[cols_swapped]
+        random_rows['GreaterRank'] = 1 - random_rows['GreaterRank']
+        X.update(random_rows)
+        for i in random_rows.index:
+            Y[i] = 1 - Y[i]
     
     return X, Y
 

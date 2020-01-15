@@ -7,8 +7,7 @@ def feature_importance(X, model):
     fig, ax = plt.subplots(figsize=(10, 10))
     ax.bar(range(0,X.shape[1]), model.feature_importances_)
     ax.set_title("Feature Importances")
-    for i, f in enumerate(model.feature_importances_):
-        print('{:2}'.format(i), ' -> ', X.columns[i])
+    print({X.columns[i] : round(model.feature_importances_[i], 3) for i in range(len(X.columns))})
         
         
 def model_decision_boundary(models, X, y):

@@ -32,8 +32,8 @@ def build_decision_tree(X_train, Y_train, X_valid, Y_valid, draw_graphs=True, dr
     scores = {}
     criterions = ('gini', 'entropy')
     splitters = ("best", "random")
-    depths = list(range(3, 100, 10)) + [None]
-    leaves = list(range(10, 201, 30)) + [None]
+    depths = list(range(5, 101, 5)) + [None]
+    leaves = list(range(10, 201, 10)) + [None]
     for criterion in criterions:
         for splitter in splitters:
             for depth in depths:
