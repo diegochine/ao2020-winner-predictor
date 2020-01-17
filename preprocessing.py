@@ -165,9 +165,9 @@ def unify_data(df,
     
     # Generate new columns
     if all(x not in features_to_drop for x in ('WRank', 'LRank')):
-        X['GreaterRank'] = (X['WRank'] < X['LRank']).astype(int)
+        X['RankDiff'] = (X['WRank'] - X['LRank']).astype(int)
     if all(x not in features_to_drop for x in ('WPts', 'LPts')):
-        X['MorePts'] = (X['WPts'] < X['LPts']).astype(int)
+        X['PtsDiff'] = (X['WPts'] - X['LPts']).astype(int)
     
     return X
     
