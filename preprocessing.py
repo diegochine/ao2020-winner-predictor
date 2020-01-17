@@ -53,30 +53,42 @@ DATA_TYPES = {
     'LBHand': float
 }
 
+def uniformName(w):
+    surname = w.split()
+    newName = surname[-1] + ' '
+    for n in range(len(surname)-2, -1, -1):
+        newName += surname[n][0] + '.'
+    return newName
+
 def compute_elo_rankings(data):
     """
     Given the list on matches in chronological order, for each match, computes 
-    the elo ranking of the 2 players at the beginning of the match
+    the elo ranking of the 2 players at the beginning of the match.
+    Source: https://www.betfair.com.au/hub/tennis-elo-modelling/
     """
-    #print("Elo rankings computing...")
+    def k_factor(m, c=250, o=5, s=0.4):
+        return c / ((m + o) ** s)
+    
     players = list(pd.Series(list(data.Winner) + list(data.Loser)).value_counts().index)
     elo = pd.Series(np.ones(len(players))*1500,index=players)
     ranking_elo = [(1500,1500)]
     for i in range(1,len(data)):
-        w = data.iloc[i-1,:].Winner
-        l = data.iloc[i-1,:].Loser
-        elow = elo[w]
-        elol = elo[l]
-        pwin = 1 / (1 + 10 ** ((elol - elow) / 400))    
-        K_win = 32
-        K_los = 32
+        winner = data.iloc[i-1,:].Winner
+        loser = data.iloc[i-1,:].Loser
+        elow = elo[winner]
+        elol = elo[loser]
+        pwin = 1 / (1 + 10 ** ((elol - elow) / 400))
+        mw = (data.iloc[:i-1,:].Winner == winner).sum()
+        ml = (data.iloc[:i-1,:].Loser == loser).sum()
+        K_win = k_factor(mw)
+        K_los = k_factor(ml)
         new_elow = elow + K_win *(1-pwin)
         new_elol = elol-K_los * (1-pwin)
-        elo[w] = new_elow
-        elo[l] = new_elol
+        elo[winner] = new_elow
+        elo[loser] = new_elol
         ranking_elo.append((elo[data.iloc[i,:].Winner],elo[data.iloc[i,:].Loser])) 
-    ranking_elo = pd.DataFrame(ranking_elo,columns=["elo_winner","elo_loser"])    
-    ranking_elo["proba_elo"] = 1 / (1 + 10 ** ((ranking_elo["elo_loser"] - ranking_elo["elo_winner"]) / 400))   
+    ranking_elo = pd.DataFrame(ranking_elo,columns=["EloWinner","EloLoser"])    
+    ranking_elo["ProbaElo"] = 1 / (1 + 10 ** ((ranking_elo["EloLoser"] - ranking_elo["EloWinner"]) / 400))   
     return ranking_elo
 
 def unify_data(df,
@@ -88,15 +100,14 @@ def unify_data(df,
     X = df.sort_values(by='Date')
     # Calculating Elo
     r = compute_elo_rankings(X)
-    X['WEloCalc'] = r['elo_winner']
-    X['LEloCalc'] = r['elo_loser']
-    #X['PElo'] = r['proba_elo']
+    X['WEloCalc'] = r['EloWinner']
+    X['LEloCalc'] = r['EloLoser']
+    X['ProbaElo'] = r['ProbaElo']
     
-    # Drop unuseful columns
-    features_to_drop += ['ATP', 'Location', 'Tournament', 'Date', 'Comment', 
-                         'Winner', 'Loser', 'Wsets', 'Lsets', 
-                         'W1', 'L1', 'W2', 'L2', 'W3', 'L3', 'W4', 'L4', 'W5', 'L5', 
-                         'B365W', 'B365L', 'EXW', 'EXL', 'LBW', 'LBL', 'PSW', 'PSL', 'SJW', 'SJL',
+    # Drop unuseful columns:
+    features_to_drop += ['ATP', 'Location', 'Tournament', 'Date', 'Comment', 'Winner', 'Loser', 
+                         'Wsets', 'Lsets', 'W1', 'L1', 'W2', 'L2', 'W3', 'L3', 'W4', 'L4', 'W5', 'L5', 
+                         'B365W', 'B365L', 'EXW', 'EXL', 'LBW', 'LBL', 'PSW', 'PSL', 'SJW', 'SJL', 'MaxW', 'MaxL', 'AvgW', 'AvgL',
                          'WBD', 'LBD']
     X = X.drop(columns=features_to_drop)
     
@@ -153,7 +164,10 @@ def unify_data(df,
         X = pd.get_dummies(X, prefix=['Surface_'], columns=['Surface'], drop_first=drop_first)
     
     # Generate new columns
-    X['GreaterRank'] = (X['WRank'] < X['LRank']).astype(int)
+    if all(x not in features_to_drop for x in ('WRank', 'LRank')):
+        X['GreaterRank'] = (X['WRank'] < X['LRank']).astype(int)
+    if all(x not in features_to_drop for x in ('WPts', 'LPts')):
+        X['MorePts'] = (X['WPts'] < X['LPts']).astype(int)
     
     return X
     
@@ -193,6 +207,8 @@ def preprocess_data(min_date=2011,
         tmp = X.copy()
         tmp[cols_to_swap] = tmp[cols_swapped]
         tmp['GreaterRank'] = 1 - tmp['GreaterRank']
+        tmp['ProbaElo'] = 1 - tmp['ProbaElo']
+        tmp['MorePts'] = 1 - tmp['MorePts']
         tmp.index = np.array(range(X.shape[0] + 1, X.shape[0] * 2 + 1))
         X = pd.concat((X, tmp))
     elif labels == 'random':
@@ -202,6 +218,8 @@ def preprocess_data(min_date=2011,
         random_rows = X.sample(randint(X.shape[0]//3, X.shape[0]//3*2))
         random_rows[cols_to_swap] = random_rows[cols_swapped]
         random_rows['GreaterRank'] = 1 - random_rows['GreaterRank']
+        random_rows['ProbaElo'] = 1 - random_rows['ProbaElo']
+        random_rows['MorePts'] = 1 - random_rows['MorePts']
         X.update(random_rows)
         for i in random_rows.index:
             Y[i] = 1 - Y[i]

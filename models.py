@@ -18,12 +18,19 @@ def timeit(fun):
     return timed
 
 
-def baseline_model(X, Y):
-    # This model will always predict the winner as the player with the highest rank.
-    # It's the lower bound on accuracy that we wish to improve
-    y_pred = (X['WRank'] > X['LRank']).astype(int)
-    accuracy = round((y_pred == Y).sum()/len(Y), 2)
-    return accuracy
+def baseline_model(df):
+    # "stupid" models, the lower bounds on accuracy that we want to improve upon
+    y_true = np.ones(df.shape[0])
+    y_pred = (df['WRank'] > df['LRank']).astype(int)
+    print('Player with higher rank wins. Accuracy:', round((y_pred == y_true).sum()/len(y_true), 2))
+    y_pred = (df['AvgW'] > df['AvgL']).astype(int)
+    print('Player with higher avg bet wins. Accuracy:', round((y_pred == y_true).sum()/len(y_true), 2))
+    tmp = df.dropna(subset=['B365W', 'B365L', 'PSW', 'PSL'])
+    winner_bets = tmp['B365W'] + tmp['PSW'] + tmp['AvgW'] + tmp['MaxW']
+    loser_bets = tmp['B365L'] + tmp['PSL'] + tmp['AvgL'] + tmp['MaxL']
+    y_pred = (winner_bets > loser_bets).astype(int)
+    y_true = np.ones(tmp.shape[0])
+    print('Player with combined bet (B365+PS+Max+Avg) wins. Accuracy:', round((y_pred == y_true).sum()/len(y_true), 2))
 
 
 @timeit
@@ -210,51 +217,70 @@ def build_adaboost(X_train, Y_train, X_valid, Y_valid, draw_graphs=True):
 @timeit
 def build_random_forest(X_train, Y_train, X_valid, Y_valid, draw_graphs=True):
     scores = {}
-    n_estimators = list(range(50, 501, 50))
+    n_estimators = list(range(50, 301, 50))
+    depths = list(range(5, 21, 5))
     for n_est in n_estimators:
         for criterion in ('gini', 'entropy'):
             for bootstrap in (True, False):
                 for n_features in (None, 'sqrt', 'log2'):
-                    rf = RandomForestClassifier(n_estimators=n_est,
-                                                bootstrap=bootstrap,
-                                                criterion=criterion,
-                                                max_features=n_features,
-                                                n_jobs=-1)
-                    rf.fit(X_train, Y_train)
-                    train_acc = round(accuracy_score(y_true=Y_train, y_pred=rf.predict(X_train)), 3)
-                    valid_acc = round(accuracy_score(y_true=Y_valid, y_pred=rf.predict(X_valid)), 3)
-                    scores[(n_est, criterion, bootstrap, n_features)] = (valid_acc, train_acc)
+                    for depth in depths:
+                        rf = RandomForestClassifier(n_estimators=n_est,
+                                                    bootstrap=bootstrap,
+                                                    criterion=criterion,
+                                                    max_features=n_features,
+                                                    max_depth=depth,
+                                                    n_jobs=-1)
+                        rf.fit(X_train, Y_train)
+                        train_acc = round(accuracy_score(y_true=Y_train, y_pred=rf.predict(X_train)), 3)
+                        valid_acc = round(accuracy_score(y_true=Y_valid, y_pred=rf.predict(X_valid)), 3)
+                        scores[(n_est, criterion, bootstrap, n_features, depth)] = (valid_acc, train_acc)
                     
     best_acc = max(scores.values())
     best_params = [params for params, acc in scores.items() if acc == best_acc][0]
-    n_est, criterion, bootstrap, n_features = best_params
+    n_est, criterion, bootstrap, n_features, depth = best_params
     print('Max accuracy (validation, training):', best_acc)
     print('N. estimators:', n_est)
     print('Criterion:', criterion)
     print('Bootstrap:', bootstrap)
     print('Features criterion (None means all features):', n_features)
+    print('Max tree depth:', depth)
     
     rf = RandomForestClassifier(n_estimators=n_est,
-                               bootstrap=bootstrap,
-                               criterion=criterion,
-                               n_jobs=-1)
+                                bootstrap=bootstrap,
+                                criterion=criterion,
+                                max_features=n_features,
+                                max_depth=depth,
+                                n_jobs=-1)
     rf.fit(pd.concat([X_train, X_valid]), np.concatenate([Y_train, Y_valid]))
     
     if draw_graphs:
-        fig, ax = plt.subplots(figsize=(9,9))
+        fig, (est_ax, depth_ax) = plt.subplots(1, 2, figsize=(12, 6))
         # plotting acc graph for n_estimators hyperparameter
         errors = []
         for tmp_n_est in n_estimators:
-            valid_acc, train_acc = scores[(tmp_n_est, criterion, bootstrap, n_features)]
+            valid_acc, train_acc = scores[(tmp_n_est, criterion, bootstrap, n_features, depth)]
             errors += [ [tmp_n_est, valid_acc, train_acc] ]
         errors = np.array(errors)
-        ax.plot(errors[:,0], errors[:,1], "x:", label="Validation")
-        ax.plot(errors[:,0], errors[:,2], "o-", label="Train")
-        ax.set_ylabel("Accuracy")
-        ax.set_xlabel("Number of estimators")
-        ax.grid()
-        ax.legend()
-    
+        est_ax.plot(errors[:,0], errors[:,1], "x:", label="Validation")
+        est_ax.plot(errors[:,0], errors[:,2], "o-", label="Train")
+        est_ax.set_ylabel("Accuracy")
+        est_ax.set_xlabel("Number of estimators")
+        est_ax.grid()
+        est_ax.legend()
+        
+        # plotting acc graph for max_depth hyperparameter
+        errors = []
+        for tmp_depth in depths:
+            valid_acc, train_acc = scores[(n_est, criterion, bootstrap, n_features, depth)]
+            errors += [ [tmp_depth, valid_acc, train_acc] ]
+        errors = np.array(errors)
+        depth_ax.plot(errors[:,0], errors[:,1], "x:", label="Validation")
+        depth_ax.plot(errors[:,0], errors[:,2], "o-", label="Train")
+        depth_ax.set_ylabel("Accuracy")
+        depth_ax.set_xlabel("Max tree depth")
+        depth_ax.grid()
+        depth_ax.legend()
+        
     return rf
 
 
