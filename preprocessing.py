@@ -96,20 +96,12 @@ def unify_data(df,
                missing_values="drop", 
                drop_first=False):
     
-    # Sort by date to calculate ELO
-    X = df.sort_values(by='Date')
-    # Calculating Elo
-    r = compute_elo_rankings(X)
-    X['WEloCalc'] = r['EloWinner']
-    X['LEloCalc'] = r['EloLoser']
-    X['ProbaElo'] = r['ProbaElo']
-    
     # Drop unuseful columns:
     features_to_drop += ['ATP', 'Location', 'Tournament', 'Date', 'Comment', 'Winner', 'Loser', 
                          'Wsets', 'Lsets', 'W1', 'L1', 'W2', 'L2', 'W3', 'L3', 'W4', 'L4', 'W5', 'L5', 
                          'B365W', 'B365L', 'EXW', 'EXL', 'LBW', 'LBL', 'PSW', 'PSL', 'SJW', 'SJL', 'MaxW', 'MaxL', 'AvgW', 'AvgL',
                          'WBD', 'LBD']
-    X = X.drop(columns=features_to_drop)
+    X = df.drop(columns=features_to_drop)
     
     # Deal with missing values
     X['WRank'] = X['WRank'].fillna(value=X['WRank'].max()+100).astype(int)
@@ -189,7 +181,14 @@ def preprocess_data(min_date=2011,
         filename = "data/" + str(year) + ".csv"
         df = pd.concat((df, pd.read_csv(filename, encoding='utf-8-sig', dtype=DATA_TYPES)))
 
-    X = unify_data(df, features_to_drop, missing_values, drop_first)
+    # Sort by date to calculate ELO
+    X = df.sort_values(by='Date')
+    # Calculating Elo
+    r = compute_elo_rankings(X)
+    X['WEloCalc'] = r['EloWinner']
+    X['LEloCalc'] = r['EloLoser']
+    X['ProbaElo'] = r['ProbaElo']
+    X = unify_data(X, features_to_drop, missing_values, drop_first)
     X.index = np.array(range(0, X.shape[0]))
     
     # Duplicate data with swapped columns or random swap
@@ -206,9 +205,9 @@ def preprocess_data(min_date=2011,
         Y = np.concatenate([np.ones(X.shape[0], dtype=int), np.zeros(X.shape[0], dtype=int)])
         tmp = X.copy()
         tmp[cols_to_swap] = tmp[cols_swapped]
-        tmp['GreaterRank'] = 1 - tmp['GreaterRank']
+        tmp['RankDiff'] = -1 * tmp['RankDiff']
+        tmp['PtsDiff'] = -1 * tmp['PtsDiff']
         tmp['ProbaElo'] = 1 - tmp['ProbaElo']
-        tmp['MorePts'] = 1 - tmp['MorePts']
         tmp.index = np.array(range(X.shape[0] + 1, X.shape[0] * 2 + 1))
         X = pd.concat((X, tmp))
     elif labels == 'random':
@@ -217,9 +216,9 @@ def preprocess_data(min_date=2011,
         Y = np.ones(X.shape[0], dtype=int)
         random_rows = X.sample(randint(X.shape[0]//3, X.shape[0]//3*2))
         random_rows[cols_to_swap] = random_rows[cols_swapped]
-        random_rows['GreaterRank'] = 1 - random_rows['GreaterRank']
+        random_rows['RankDiff'] = -1 * random_rows['RankDiff']
+        random_rows['PtsDiff'] = -1 * random_rows['PtsDiff']
         random_rows['ProbaElo'] = 1 - random_rows['ProbaElo']
-        random_rows['MorePts'] = 1 - random_rows['MorePts']
         X.update(random_rows)
         for i in random_rows.index:
             Y[i] = 1 - Y[i]
