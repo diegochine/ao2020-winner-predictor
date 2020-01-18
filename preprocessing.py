@@ -54,11 +54,14 @@ DATA_TYPES = {
 }
 
 def uniformName(w):
-    surname = w.split()
+    surname = w.replace('-', ' ').split()
     newName = surname[-1] + ' '
     for n in range(len(surname)-2, -1, -1):
         newName += surname[n][0] + '.'
     return newName
+
+def compute_probability_elo(p1Elo, p2Elo):
+    return 1 / (1 + 10 ** ((p2Elo - p1Elo) / 400)) 
 
 def compute_elo_rankings(data):
     """
@@ -88,7 +91,7 @@ def compute_elo_rankings(data):
         elo[loser] = new_elol
         ranking_elo.append((elo[data.iloc[i,:].Winner],elo[data.iloc[i,:].Loser])) 
     ranking_elo = pd.DataFrame(ranking_elo,columns=["EloWinner","EloLoser"])    
-    ranking_elo["ProbaElo"] = 1 / (1 + 10 ** ((ranking_elo["EloLoser"] - ranking_elo["EloWinner"]) / 400))   
+    ranking_elo["ProbaElo"] = compute_probability_elo(ranking_elo["EloWinner"], ranking_elo["EloLoser"])
     return ranking_elo, elo
 
 def unify_data(df,
