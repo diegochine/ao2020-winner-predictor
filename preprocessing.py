@@ -89,7 +89,7 @@ def compute_elo_rankings(data):
         ranking_elo.append((elo[data.iloc[i,:].Winner],elo[data.iloc[i,:].Loser])) 
     ranking_elo = pd.DataFrame(ranking_elo,columns=["EloWinner","EloLoser"])    
     ranking_elo["ProbaElo"] = 1 / (1 + 10 ** ((ranking_elo["EloLoser"] - ranking_elo["EloWinner"]) / 400))   
-    return ranking_elo
+    return ranking_elo, elo
 
 def unify_data(df,
                features_to_drop=[], 
@@ -169,7 +169,8 @@ def preprocess_data(min_date=2011,
                     features_to_drop=[], 
                     missing_values="drop", 
                     drop_first=False,
-                    labels="duplicate"):
+                    labels="duplicate",
+                    returnElo=False):
     """
     Processes raw data and returns a tuple (X, Y) where X is the cleaned dataset and Y is the array of labels.
     """
@@ -184,7 +185,7 @@ def preprocess_data(min_date=2011,
     # Sort by date to calculate ELO
     X = df.sort_values(by='Date')
     # Calculating Elo
-    r = compute_elo_rankings(X)
+    r, playersElo = compute_elo_rankings(X)
     X['WEloCalc'] = r['EloWinner']
     X['LEloCalc'] = r['EloLoser']
     X['ProbaElo'] = r['ProbaElo']
@@ -222,6 +223,8 @@ def preprocess_data(min_date=2011,
         X.update(random_rows)
         for i in random_rows.index:
             Y[i] = 1 - Y[i]
-    
-    return X, Y
+    if returnElo:
+        return X, Y, playersElo
+    else:
+        return X, Y
 
