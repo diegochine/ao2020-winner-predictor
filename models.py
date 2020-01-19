@@ -108,7 +108,7 @@ def build_decision_tree(X_train, Y_train, X_valid, Y_valid, draw_graphs=True, dr
 @timeit
 def build_bagging_classifier(X_train, Y_train, X_valid, Y_valid, draw_graphs=True):
     scores = {}
-    n_estimators = list(range(10, 201, 10))
+    n_estimators = list(range(10, 211, 20))
     for bootstrap in (True, False):
         for n_est in n_estimators:
             for max_samples in (0.25, 0.50, 0.75, 1.0):
@@ -217,39 +217,38 @@ def build_adaboost(X_train, Y_train, X_valid, Y_valid, draw_graphs=True):
 @timeit
 def build_random_forest(X_train, Y_train, X_valid, Y_valid, draw_graphs=True):
     scores = {}
-    n_estimators = list(range(50, 301, 50))
-    depths = list(range(5, 21, 5))
+    n_estimators = list(range(100, 1000, 100))
+    MAX_DEPTH = 20
     for n_est in n_estimators:
         for criterion in ('gini', 'entropy'):
             for bootstrap in (True, False):
                 for n_features in (None, 'sqrt', 'log2'):
-                    for depth in depths:
-                        rf = RandomForestClassifier(n_estimators=n_est,
-                                                    bootstrap=bootstrap,
-                                                    criterion=criterion,
-                                                    max_features=n_features,
-                                                    max_depth=depth,
-                                                    n_jobs=-1)
-                        rf.fit(X_train, Y_train)
-                        train_acc = round(accuracy_score(y_true=Y_train, y_pred=rf.predict(X_train)), 3)
-                        valid_acc = round(accuracy_score(y_true=Y_valid, y_pred=rf.predict(X_valid)), 3)
-                        scores[(n_est, criterion, bootstrap, n_features, depth)] = (valid_acc, train_acc)
+                    rf = RandomForestClassifier(n_estimators=n_est,
+                                                bootstrap=bootstrap,
+                                                criterion=criterion,
+                                                max_features=n_features,
+                                                max_depth=MAX_DEPTH,
+                                                n_jobs=-1)
+                    rf.fit(X_train, Y_train)
+                    train_acc = round(accuracy_score(y_true=Y_train, y_pred=rf.predict(X_train)), 3)
+                    valid_acc = round(accuracy_score(y_true=Y_valid, y_pred=rf.predict(X_valid)), 3)
+                    scores[(n_est, criterion, bootstrap, n_features)] = (valid_acc, train_acc)
                     
     best_acc = max(scores.values())
     best_params = [params for params, acc in scores.items() if acc == best_acc][0]
-    n_est, criterion, bootstrap, n_features, depth = best_params
+    n_est, criterion, bootstrap, n_features = best_params
     print('Max accuracy (validation, training):', best_acc)
     print('N. estimators:', n_est)
     print('Criterion:', criterion)
     print('Bootstrap:', bootstrap)
     print('Features criterion (None means all features):', n_features)
-    print('Max tree depth:', depth)
+    print('Max tree depth:', MAX_DEPTH)
     
     rf = RandomForestClassifier(n_estimators=n_est,
                                 bootstrap=bootstrap,
                                 criterion=criterion,
                                 max_features=n_features,
-                                max_depth=depth,
+                                max_depth=MAX_DEPTH,
                                 n_jobs=-1)
     rf.fit(pd.concat([X_train, X_valid]), np.concatenate([Y_train, Y_valid]))
     

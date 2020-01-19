@@ -53,7 +53,7 @@ DATA_TYPES = {
     'LBHand': float
 }
 
-def uniformName(w):
+def uniform_name(w):
     surname = w.replace('-', ' ').split()
     newName = surname[-1] + ' '
     for n in range(len(surname)-2, -1, -1):
@@ -73,7 +73,7 @@ def compute_elo_rankings(data):
         return c / ((m + o) ** s)
     
     players = list(pd.Series(list(data.Winner) + list(data.Loser)).value_counts().index)
-    elo = pd.Series(np.ones(len(players))*1500,index=players)
+    elo = pd.Series(np.ones(len(players))*1500, index=players)
     ranking_elo = [(1500,1500)]
     for i in range(1,len(data)):
         winner = data.iloc[i-1,:].Winner
@@ -85,38 +85,34 @@ def compute_elo_rankings(data):
         ml = (data.iloc[:i-1,:].Loser == loser).sum()
         K_win = k_factor(mw)
         K_los = k_factor(ml)
-        new_elow = elow + K_win *(1-pwin)
-        new_elol = elol-K_los * (1-pwin)
+        new_elow = elow + K_win * (1-pwin)
+        new_elol = elol - K_los * (1-pwin)
         elo[winner] = new_elow
         elo[loser] = new_elol
         ranking_elo.append((elo[data.iloc[i,:].Winner],elo[data.iloc[i,:].Loser])) 
-    ranking_elo = pd.DataFrame(ranking_elo,columns=["EloWinner","EloLoser"])    
+    ranking_elo = pd.DataFrame(ranking_elo, columns=["EloWinner","EloLoser"])    
     ranking_elo["ProbaElo"] = compute_probability_elo(ranking_elo["EloWinner"], ranking_elo["EloLoser"])
     return ranking_elo, elo
 
 def unify_data(df,
-               features_to_drop=[], 
-               missing_values="drop", 
-               drop_first=False):
+               features_to_drop=[],
+               features_to_add=['elo', 'diff', 'top10']):
     
-    # Drop unuseful columns:
+    # Drop unuseful columns
+    if any(f not in df.columns for f in features_to_drop):
+        raise ValueError('{} column doesn\'t exist'.format(f))
     features_to_drop += ['ATP', 'Location', 'Tournament', 'Date', 'Comment', 'Winner', 'Loser', 
                          'Wsets', 'Lsets', 'W1', 'L1', 'W2', 'L2', 'W3', 'L3', 'W4', 'L4', 'W5', 'L5', 
                          'B365W', 'B365L', 'EXW', 'EXL', 'LBW', 'LBL', 'PSW', 'PSL', 'SJW', 'SJL', 'MaxW', 'MaxL', 'AvgW', 'AvgL',
-                         'WBD', 'LBD']
+                         'WElo', 'WSurfElo', 'LElo', 'LSurfElo', 'WBD', 'LBD']
     X = df.drop(columns=features_to_drop)
     
-    # Deal with missing values
+    # fill wrank and lrank missing values
     X['WRank'] = X['WRank'].fillna(value=X['WRank'].max()+100).astype(int)
     X['LRank'] = X['LRank'].fillna(value=X['LRank'].max()+100).astype(int)
-
-    if missing_values == 'drop':
-        X = X.dropna()
-    elif missing_values == 'custom':
-        pass
-    else:
-        raise ValueError('Wrong parameter: missing_values')
-
+    # drop rows that still have missing values
+    X = X.dropna()
+    
     # Convert ordinal features to int (higher value means more important)
     conversion_dict = {}
     if 'Series' not in features_to_drop:
@@ -156,13 +152,18 @@ def unify_data(df,
     
     # One hot encode categorical features into binary features
     if 'Surface' not in features_to_drop:
-        X = pd.get_dummies(X, prefix=['Surface_'], columns=['Surface'], drop_first=drop_first)
+        X = pd.get_dummies(X, prefix=['Surface_'], columns=['Surface'], drop_first=False)
     
     # Generate new columns
-    if all(x not in features_to_drop for x in ('WRank', 'LRank')):
-        X['RankDiff'] = (X['WRank'] - X['LRank']).astype(int)
-    if all(x not in features_to_drop for x in ('WPts', 'LPts')):
-        X['PtsDiff'] = (X['WPts'] - X['LPts']).astype(int)
+    if 'diff' in features_to_add:
+        if all(x not in features_to_drop for x in ('WRank', 'LRank')):
+            X['RankDiff'] = (X['WRank'] - X['LRank']).astype(int)
+        if all(x not in features_to_drop for x in ('WPts', 'LPts')):
+            X['PtsDiff'] = (X['WPts'] - X['LPts']).astype(int)
+    
+    if 'top10' in features_to_add:
+        X['Top10W'] = (X['WRank'] <= 10).astype(int)
+        X['Top10L'] = (X['LRank'] <= 10).astype(int)
     
     return X
     
@@ -170,8 +171,7 @@ def unify_data(df,
 def preprocess_data(min_date=2011,
                     max_date=2019,
                     features_to_drop=[], 
-                    missing_values="drop", 
-                    drop_first=False,
+                    features_to_add=['elo', 'diff', 'top10'],
                     labels="duplicate",
                     returnElo=False):
     """
@@ -180,27 +180,27 @@ def preprocess_data(min_date=2011,
     # Loads data for the given years
     if max_date > 2019 or min_date < 2011:
         raise ValueError("Wrong date parameter")
-    df = pd.read_csv("data/" + str(min_date) + ".csv", encoding='utf-8-sig', dtype=DATA_TYPES)
+    df = pd.read_csv("data/" + str(min_date) + ".csv", encoding='utf-8-sig', dtype=DATA_TYPES, parse_dates=['Date', 'WBD', 'LBD'])
     for year in range (min_date + 1, max_date + 1):
         filename = "data/" + str(year) + ".csv"
-        df = pd.concat((df, pd.read_csv(filename, encoding='utf-8-sig', dtype=DATA_TYPES)))
+        df = pd.concat((df, pd.read_csv(filename, encoding='utf-8-sig', dtype=DATA_TYPES, parse_dates=['Date', 'WBD', 'LBD'])))
 
-    # Sort by date to calculate ELO
-    X = df.sort_values(by='Date')
-    # Calculating Elo
-    r, playersElo = compute_elo_rankings(X)
-    X['WEloCalc'] = r['EloWinner']
-    X['LEloCalc'] = r['EloLoser']
-    X['ProbaElo'] = r['ProbaElo']
-    X = unify_data(X, features_to_drop, missing_values, drop_first)
+    if 'elo' in features_to_add:
+        # Sort by date to calculate ELO
+        X = df.sort_values(by='Date')
+        # Calculating Elo
+        r, playersElo = compute_elo_rankings(X)
+        X['WEloCalc'] = r['EloWinner']
+        X['LEloCalc'] = r['EloLoser']
+        X['ProbaElo'] = r['ProbaElo']
+    
+    X = unify_data(X, features_to_drop)
     X.index = np.array(range(0, X.shape[0]))
     
     # Duplicate data with swapped columns or random swap
-    cols_to_swap = ['WRank', 'LRank', 'MaxW', 'MaxL',  'AvgW',  'AvgL', 'WPts', 'LPts',
-                    'WElo', 'LElo', 'WSurfElo', 'LSurfElo', 'WHand', 'LHand', 'WBHand', 'LBHand', 'WEloCalc', 'LEloCalc']
+    cols_to_swap = ['WRank', 'LRank', 'WPts', 'LPts', 'WHand', 'LHand', 'WBHand', 'LBHand']
     cols_to_swap = [f for f in cols_to_swap if f not in features_to_drop]
-    cols_swapped = ['LRank', 'WRank', 'MaxL', 'MaxW',  'AvgL',  'AvgW', 'LPts', 'WPts',
-                    'LElo', 'WElo', 'LSurfElo', 'WSurfElo', 'LHand', 'WHand', 'LBHand', 'WBHand', 'LEloCalc', 'WEloCalc']
+    cols_swapped = ['LRank', 'WRank', 'LPts', 'WPts','LHand', 'WHand', 'LBHand', 'WBHand']
     cols_swapped = [f for f in cols_swapped if f not in features_to_drop]
     
     # Generate labels
@@ -209,9 +209,14 @@ def preprocess_data(min_date=2011,
         Y = np.concatenate([np.ones(X.shape[0], dtype=int), np.zeros(X.shape[0], dtype=int)])
         tmp = X.copy()
         tmp[cols_to_swap] = tmp[cols_swapped]
-        tmp['RankDiff'] = -1 * tmp['RankDiff']
-        tmp['PtsDiff'] = -1 * tmp['PtsDiff']
-        tmp['ProbaElo'] = 1 - tmp['ProbaElo']
+        if 'diff' in features_to_add:
+            tmp['RankDiff'] = -1 * tmp['RankDiff']
+            tmp['PtsDiff'] = -1 * tmp['PtsDiff']
+        if 'elo' in features_to_add:
+            tmp[['WEloCalc', 'LEloCal']] = tmp[['LEloCalc', 'WEloCalc']]
+            tmp['ProbaElo'] = 1 - tmp['ProbaElo']
+        if 'top10' in features_to_add:
+            tmp[['Top10W', 'Top10L']] = tmp[['Top10L', 'Top10W']]
         tmp.index = np.array(range(X.shape[0] + 1, X.shape[0] * 2 + 1))
         X = pd.concat((X, tmp))
     elif labels == 'random':
@@ -220,9 +225,14 @@ def preprocess_data(min_date=2011,
         Y = np.ones(X.shape[0], dtype=int)
         random_rows = X.sample(randint(X.shape[0]//3, X.shape[0]//3*2))
         random_rows[cols_to_swap] = random_rows[cols_swapped]
-        random_rows['RankDiff'] = -1 * random_rows['RankDiff']
-        random_rows['PtsDiff'] = -1 * random_rows['PtsDiff']
-        random_rows['ProbaElo'] = 1 - random_rows['ProbaElo']
+        if 'diff' in features_to_add:
+            random_rows['RankDiff'] = -1 * random_rows['RankDiff']
+            random_rows['PtsDiff'] = -1 * random_rows['PtsDiff']
+        if 'elo' in features_to_add:
+            random_rows[['WEloCalc', 'LEloCal']] = random_rows[['LEloCalc', 'WEloCalc']]
+            random_rows['ProbaElo'] = 1 - random_rows['ProbaElo']
+        if 'top10' in features_to_add:
+            random_rows[['Top10W', 'Top10L']] = random_rows[['Top10L', 'Top10W']]
         X.update(random_rows)
         for i in random_rows.index:
             Y[i] = 1 - Y[i]
