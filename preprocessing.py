@@ -43,12 +43,8 @@ DATA_TYPES = {
     'MaxL': float,
     'AvgW': float,
     'AvgL': float,
-    'WElo': float,
-    'WSurfElo': float,
     'WHand': object,
     'WBHand': float,
-    'LElo': float,
-    'LSurfElo': float,
     'LHand': object,
     'LBHand': float
 }
@@ -103,9 +99,9 @@ def unify_data(X,
         raise ValueError('{} column doesn\'t exist'.format(f))
     features_to_drop += ['ATP', 'Location', 'Tournament', 'Date', 'Comment', 'Winner', 'Loser', 
                          'Wsets', 'Lsets', 'W1', 'L1', 'W2', 'L2', 'W3', 'L3', 'W4', 'L4', 'W5', 'L5', 
-                         'B365W', 'B365L', 'EXW', 'EXL', 'LBW', 'LBL', 'PSW', 'PSL', 'SJW', 'SJL', 'MaxW', 'MaxL', 'AvgW', 'AvgL',
-                         'WElo', 'WSurfElo', 'LElo', 'LSurfElo', 'WBD', 'LBD']
-    X = X.drop(columns=features_to_drop)
+                         'B365W', 'B365L', 'EXW', 'EXL', 'LBW', 'LBL', 'PSW', 'PSL', 'SJW', 'SJL', 'MaxW', 'MaxL', 
+                         'AvgW', 'AvgL', 'WBD', 'LBD']
+    X = df.drop(columns=features_to_drop)
     
     # fill missing values for ranks and points
     X['WRank'] = X['WRank'].fillna(value=X['WRank'].max()+1).astype(int)
@@ -171,7 +167,7 @@ def unify_data(X,
     
 
 def preprocess_data(min_date=2011,
-                    max_date=2019,
+                    max_date=2020,
                     features_to_drop=[], 
                     features_to_add=['elo', 'diff', 'top10'],
                     labels="duplicate",
@@ -180,7 +176,7 @@ def preprocess_data(min_date=2011,
     Processes raw data and returns a tuple (X, Y) where X is the cleaned dataset and Y is the array of labels.
     """
     # Loads data for the given years
-    if max_date > 2019 or min_date < 2011:
+    if max_date > 2020 or min_date < 2011:
         raise ValueError("Wrong date parameter")
     X = pd.read_csv("data/" + str(min_date) + ".csv", encoding='utf-8-sig', dtype=DATA_TYPES, parse_dates=['Date', 'WBD', 'LBD'])
     for year in range (min_date + 1, max_date + 1):
