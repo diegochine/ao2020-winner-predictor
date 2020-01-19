@@ -25,12 +25,6 @@ def baseline_model(df):
     print('Player with higher rank wins. Accuracy:', round((y_pred == y_true).sum()/len(y_true), 2))
     y_pred = (df['AvgW'] > df['AvgL']).astype(int)
     print('Player with higher avg bet wins. Accuracy:', round((y_pred == y_true).sum()/len(y_true), 2))
-    tmp = df.dropna(subset=['B365W', 'B365L', 'PSW', 'PSL'])
-    winner_bets = tmp['B365W'] + tmp['PSW'] + tmp['AvgW'] + tmp['MaxW']
-    loser_bets = tmp['B365L'] + tmp['PSL'] + tmp['AvgL'] + tmp['MaxL']
-    y_pred = (winner_bets > loser_bets).astype(int)
-    y_true = np.ones(tmp.shape[0])
-    print('Player with combined bet (B365+PS+Max+Avg) wins. Accuracy:', round((y_pred == y_true).sum()/len(y_true), 2))
 
 
 @timeit
@@ -139,7 +133,7 @@ def build_bagging_classifier(X_train, Y_train, X_valid, Y_valid, draw_graphs=Tru
     bagged_dt.fit(pd.concat([X_train, X_valid]), np.concatenate([Y_train, Y_valid]))
     
     if draw_graphs:
-        fig, ax = plt.subplots(figsize=(9, 9))
+        fig, ax = plt.subplots(figsize=(6, 6))
         # plotting acc graph for n_estimators hyperparameter
         errors = []
         for tmp_n_est in n_estimators:
@@ -163,7 +157,7 @@ def build_adaboost(X_train, Y_train, X_valid, Y_valid, draw_graphs=True):
     for n_est in n_estimators:
         for learning_rate in learning_rates:
             for criterion in ('gini', 'entropy'):
-                boosted_dt = AdaBoostClassifier(DecisionTreeClassifier(criterion=criterion),
+                boosted_dt = AdaBoostClassifier(DecisionTreeClassifier(max_depth=5, criterion=criterion),
                                                 n_estimators=n_est,
                                                 learning_rate=learning_rate)
                 boosted_dt.fit(X_train, Y_train)
@@ -179,7 +173,7 @@ def build_adaboost(X_train, Y_train, X_valid, Y_valid, draw_graphs=True):
     print('Learning rate:', learning_rate)
     print('Tree criterion:', criterion)
     
-    boosted_dt = AdaBoostClassifier(DecisionTreeClassifier(criterion=criterion),
+    boosted_dt = AdaBoostClassifier(DecisionTreeClassifier(max_depth=5, criterion=criterion),
                                     n_estimators=n_est,
                                     learning_rate=learning_rate)
     boosted_dt.fit(pd.concat([X_train, X_valid]), np.concatenate([Y_train, Y_valid]))
@@ -253,11 +247,11 @@ def build_random_forest(X_train, Y_train, X_valid, Y_valid, draw_graphs=True):
     rf.fit(pd.concat([X_train, X_valid]), np.concatenate([Y_train, Y_valid]))
     
     if draw_graphs:
-        fig, (est_ax, depth_ax) = plt.subplots(1, 2, figsize=(12, 6))
+        fig, est_ax = plt.subplots(figsize=(6, 6))
         # plotting acc graph for n_estimators hyperparameter
         errors = []
         for tmp_n_est in n_estimators:
-            valid_acc, train_acc = scores[(tmp_n_est, criterion, bootstrap, n_features, depth)]
+            valid_acc, train_acc = scores[(tmp_n_est, criterion, bootstrap, n_features)]
             errors += [ [tmp_n_est, valid_acc, train_acc] ]
         errors = np.array(errors)
         est_ax.plot(errors[:,0], errors[:,1], "x:", label="Validation")
@@ -266,19 +260,6 @@ def build_random_forest(X_train, Y_train, X_valid, Y_valid, draw_graphs=True):
         est_ax.set_xlabel("Number of estimators")
         est_ax.grid()
         est_ax.legend()
-        
-        # plotting acc graph for max_depth hyperparameter
-        errors = []
-        for tmp_depth in depths:
-            valid_acc, train_acc = scores[(n_est, criterion, bootstrap, n_features, depth)]
-            errors += [ [tmp_depth, valid_acc, train_acc] ]
-        errors = np.array(errors)
-        depth_ax.plot(errors[:,0], errors[:,1], "x:", label="Validation")
-        depth_ax.plot(errors[:,0], errors[:,2], "o-", label="Train")
-        depth_ax.set_ylabel("Accuracy")
-        depth_ax.set_xlabel("Max tree depth")
-        depth_ax.grid()
-        depth_ax.legend()
         
     return rf
 

@@ -94,22 +94,24 @@ def compute_elo_rankings(data):
     ranking_elo["ProbaElo"] = compute_probability_elo(ranking_elo["EloWinner"], ranking_elo["EloLoser"])
     return ranking_elo, elo
 
-def unify_data(df,
+def unify_data(X,
                features_to_drop=[],
                features_to_add=['elo', 'diff', 'top10']):
     
     # Drop unuseful columns
-    if any(f not in df.columns for f in features_to_drop):
+    if any(f not in X.columns for f in features_to_drop):
         raise ValueError('{} column doesn\'t exist'.format(f))
     features_to_drop += ['ATP', 'Location', 'Tournament', 'Date', 'Comment', 'Winner', 'Loser', 
                          'Wsets', 'Lsets', 'W1', 'L1', 'W2', 'L2', 'W3', 'L3', 'W4', 'L4', 'W5', 'L5', 
                          'B365W', 'B365L', 'EXW', 'EXL', 'LBW', 'LBL', 'PSW', 'PSL', 'SJW', 'SJL', 'MaxW', 'MaxL', 'AvgW', 'AvgL',
                          'WElo', 'WSurfElo', 'LElo', 'LSurfElo', 'WBD', 'LBD']
-    X = df.drop(columns=features_to_drop)
+    X = X.drop(columns=features_to_drop)
     
-    # fill wrank and lrank missing values
-    X['WRank'] = X['WRank'].fillna(value=X['WRank'].max()+100).astype(int)
-    X['LRank'] = X['LRank'].fillna(value=X['LRank'].max()+100).astype(int)
+    # fill missing values for ranks and points
+    X['WRank'] = X['WRank'].fillna(value=X['WRank'].max()+1).astype(int)
+    X['LRank'] = X['LRank'].fillna(value=X['LRank'].max()+1).astype(int)
+    X['WPts'] = X['WPts'].fillna(value=X['WPts'].min()-1).astype(int)
+    X['LPts'] = X['LPts'].fillna(value=X['LPts'].min()-1).astype(int)
     # drop rows that still have missing values
     X = X.dropna()
     
@@ -180,11 +182,11 @@ def preprocess_data(min_date=2011,
     # Loads data for the given years
     if max_date > 2019 or min_date < 2011:
         raise ValueError("Wrong date parameter")
-    df = pd.read_csv("data/" + str(min_date) + ".csv", encoding='utf-8-sig', dtype=DATA_TYPES, parse_dates=['Date', 'WBD', 'LBD'])
+    X = pd.read_csv("data/" + str(min_date) + ".csv", encoding='utf-8-sig', dtype=DATA_TYPES, parse_dates=['Date', 'WBD', 'LBD'])
     for year in range (min_date + 1, max_date + 1):
         filename = "data/" + str(year) + ".csv"
-        df = pd.concat((df, pd.read_csv(filename, encoding='utf-8-sig', dtype=DATA_TYPES, parse_dates=['Date', 'WBD', 'LBD'])))
-
+        X = pd.concat((X, pd.read_csv(filename, encoding='utf-8-sig', dtype=DATA_TYPES, parse_dates=['Date', 'WBD', 'LBD'])))
+       
     if 'elo' in features_to_add:
         # Sort by date to calculate ELO
         X = df.sort_values(by='Date')
@@ -194,7 +196,7 @@ def preprocess_data(min_date=2011,
         X['LEloCalc'] = r['EloLoser']
         X['ProbaElo'] = r['ProbaElo']
     
-    X = unify_data(X, features_to_drop)
+    X = unify_data(X, features_to_drop, features_to_add)
     X.index = np.array(range(0, X.shape[0]))
     
     # Duplicate data with swapped columns or random swap
@@ -213,7 +215,7 @@ def preprocess_data(min_date=2011,
             tmp['RankDiff'] = -1 * tmp['RankDiff']
             tmp['PtsDiff'] = -1 * tmp['PtsDiff']
         if 'elo' in features_to_add:
-            tmp[['WEloCalc', 'LEloCal']] = tmp[['LEloCalc', 'WEloCalc']]
+            tmp[['WEloCalc', 'LEloCalc']] = tmp[['LEloCalc', 'WEloCalc']]
             tmp['ProbaElo'] = 1 - tmp['ProbaElo']
         if 'top10' in features_to_add:
             tmp[['Top10W', 'Top10L']] = tmp[['Top10L', 'Top10W']]
@@ -229,13 +231,20 @@ def preprocess_data(min_date=2011,
             random_rows['RankDiff'] = -1 * random_rows['RankDiff']
             random_rows['PtsDiff'] = -1 * random_rows['PtsDiff']
         if 'elo' in features_to_add:
-            random_rows[['WEloCalc', 'LEloCal']] = random_rows[['LEloCalc', 'WEloCalc']]
+            random_rows[['WEloCalc', 'LEloCalc']] = random_rows[['LEloCalc', 'WEloCalc']]
             random_rows['ProbaElo'] = 1 - random_rows['ProbaElo']
         if 'top10' in features_to_add:
             random_rows[['Top10W', 'Top10L']] = random_rows[['Top10L', 'Top10W']]
         X.update(random_rows)
         for i in random_rows.index:
             Y[i] = 1 - Y[i]
+            
+    X = X.rename(columns={'WRank':'P1Rank', 'LRank':'P2Rank', 
+                          'WPts':'P1Pts', 'LPts':'P2Pts', 
+                          'WEloCalc':'P1Elo', 'LEloCalc':'P2Elo', 
+                          'WHand':'P1Hand', 'LHand':'P2Hand', 
+                          'WBHand':'P1BHand', 'LBHand':'P2LBHand', 
+                          'Top10W':'Top10P1', 'Top10L':'Top10P2'})
     if returnElo:
         return X, Y, playersElo
     else:
