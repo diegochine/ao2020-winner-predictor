@@ -101,7 +101,7 @@ def unify_data(X,
                          'Wsets', 'Lsets', 'W1', 'L1', 'W2', 'L2', 'W3', 'L3', 'W4', 'L4', 'W5', 'L5', 
                          'B365W', 'B365L', 'EXW', 'EXL', 'LBW', 'LBL', 'PSW', 'PSL', 'SJW', 'SJL', 'MaxW', 'MaxL', 
                          'AvgW', 'AvgL', 'WBD', 'LBD']
-    X = df.drop(columns=features_to_drop)
+    X = X.drop(columns=features_to_drop)
     
     # fill missing values for ranks and points
     X['WRank'] = X['WRank'].fillna(value=X['WRank'].max()+1).astype(int)
@@ -185,7 +185,7 @@ def preprocess_data(min_date=2011,
        
     if 'elo' in features_to_add:
         # Sort by date to calculate ELO
-        X = df.sort_values(by='Date')
+        X = X.sort_values(by='Date')
         # Calculating Elo
         r, playersElo = compute_elo_rankings(X)
         X['WEloCalc'] = r['EloWinner']
