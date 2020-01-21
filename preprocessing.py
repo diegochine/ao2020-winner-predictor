@@ -98,6 +98,7 @@ def unify_data(X,
     if 'age' in features_to_add:
         X['P1Age'] = round(((X['Date'] - X['WBD']).dt.days)/365.25, 1)
         X['P2Age'] = round(((X['Date'] - X['LBD']).dt.days)/365.25, 1)
+        X['AgeDiff'] = X['P1Age'] - X['P2Age']
     
     # Drop unuseful columns
     if any(f not in X.columns for f in features_to_drop):
