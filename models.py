@@ -203,7 +203,7 @@ def build_adaboost(X_train, Y_train, X_valid, Y_valid, draw_graphs=True):
         rate_ax.plot(errors[:,0], errors[:,1], "x:", label="Validation")
         rate_ax.plot(errors[:,0], errors[:,2], "o-", label="Train")
         rate_ax.set_ylabel("Accuracy")
-        rate_ax.set_xlabel("Number of estimators")
+        rate_ax.set_xlabel("Learning rate")
         rate_ax.grid()
         rate_ax.legend()
     return boosted_dt

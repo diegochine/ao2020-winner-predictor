@@ -102,7 +102,7 @@ def unify_data(X,
     
     # Drop unuseful columns
     if any(f not in X.columns for f in features_to_drop):
-        raise ValueError('{} column doesn\'t exist'.format(f))
+        raise ValueError('You want to drop a column that doesn\'t exist!')
     features_to_drop += ['ATP', 'Location', 'Tournament', 'Date', 'Comment', 'Winner', 'Loser', 
                          'Wsets', 'Lsets', 'W1', 'L1', 'W2', 'L2', 'W3', 'L3', 'W4', 'L4', 'W5', 'L5', 
                          'B365W', 'B365L', 'EXW', 'EXL', 'LBW', 'LBL', 'PSW', 'PSL', 'SJW', 'SJL', 'MaxW', 'MaxL', 
@@ -175,7 +175,7 @@ def unify_data(X,
 def preprocess_data(min_date=2011,
                     max_date=2020,
                     features_to_drop=[], 
-                    features_to_add=['elo', 'diff', 'top10'],
+                    features_to_add=['elo', 'diff', 'top10', 'age'],
                     labels="duplicate",
                     returnElo=False):
     """

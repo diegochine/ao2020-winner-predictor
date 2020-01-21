@@ -24,26 +24,7 @@ def model_decision_boundary(models, X, y):
     y_min, y_max = X_proj[:, 1].min() - .1, X_proj[:, 1].max() + .1
     zz = [ [xx,yy] for xx in np.linspace(x_min, x_max, 50) 
                    for yy in np.linspace(y_min, y_max, 50) ]
-    '''
-    #from here
-    model = models[0][1]
-    xx, yy = np.mgrid[x_min:x_max:1, y_min:y_max:1]
-    grid = np.c_[xx.ravel(), yy.ravel()]
-    probs = model.predict_proba(pca.inverse_transform(grid))[:, 1].reshape(xx.shape)
-    f, ax = plt.subplots(figsize=(8, 6))
-    contour = ax.contourf(xx, yy, probs, 25, cmap="RdBu",
-                          vmin=0, vmax=1)
-    ax_c = f.colorbar(contour)
-    ax_c.set_label("$P(y = 1)$")
-    ax_c.set_ticks([0, .25, .5, .75, 1])
-    ax.scatter(X_proj[:,0], X_proj[:, 1], c=y[:], s=50,
-               cmap="RdBu", vmin=-.2, vmax=1.2,
-               edgecolor="white", linewidth=1)
-    ax.set(aspect="equal",
-           xlim=(x_min, x_max), ylim=(y_min, y_max),
-           xlabel="$X_1$", ylabel="$X_2$")
-    
-    '''
+    zz = np.array(zz)
     fig, ax_lst = plt.subplots(2, 2, figsize=(12, 12))
     fig.tight_layout(pad=3.0)
     
