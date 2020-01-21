@@ -94,10 +94,10 @@ def unify_data(X,
                features_to_drop=[],
                features_to_add=['elo', 'diff', 'top10', 'age',]):
     
-    # Compute age before dropping the date column
+    # Compute age (before dropping the date column)
     if 'age' in features_to_add:
-        X['P1Age'] = ((X['Date'] - X['WBD']).dt.days)/365.25
-        X['P2Age'] = ((X['Date'] - X['LBD']).dt.days)/365.25
+        X['P1Age'] = round(((X['Date'] - X['WBD']).dt.days)/365.25, 1)
+        X['P2Age'] = round(((X['Date'] - X['LBD']).dt.days)/365.25, 1)
     
     # Drop unuseful columns
     if any(f not in X.columns for f in features_to_drop):

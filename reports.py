@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.decomposition import PCA
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, roc_curve
 
 def feature_importance(X, model, name):
     feature_imp = pd.Series(model.feature_importances_, index=X.columns).sort_values(ascending=False)
@@ -35,8 +35,13 @@ def model_decision_boundary(models, X, y):
         ax.set_title(algo)
         
 def report(X, Y, models):
+    scores = []
     for algo, model in models:
         print('Algorithm:', algo)
         rep = classification_report(y_true=Y, y_pred=model.predict(X))
         print(rep)
         print()
+        rep_dict = classification_report(y_true=Y, y_pred=model.predict(X), output_dict=True)
+        scores += [(rep_dict['accuracy'], algo)]
+    best_model = max(scores)
+    print('Best model is {} with accuracy of {}'.format(best_model[1], best_model[0])

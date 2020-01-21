@@ -90,9 +90,10 @@ def build_decision_tree(X_train, Y_train, X_valid, Y_valid, draw_graphs=True, dr
         depth_ax.set_xlabel("Max tree depth")
         depth_ax.grid()
         depth_ax.legend()
+        
     if draw_tree:
         dot_data = export_graphviz(dt, out_file=None, 
-                                   feature_names=X_train.columns, class_names=True,
+                                   feature_names=X_train.columns, class_names=True, rotate=True,
                                    filled=True, rounded=True, special_characters=True)  
         graph = graphviz.Source(dot_data)
         display(graph)
