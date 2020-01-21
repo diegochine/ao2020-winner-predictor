@@ -1,14 +1,16 @@
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn.decomposition import PCA
 from sklearn.metrics import classification_report
 
-def feature_importance(X, model):
-    fig, ax = plt.subplots(figsize=(10, 10))
-    ax.bar(range(0,X.shape[1]), model.feature_importances_)
-    ax.set_title("Feature Importances")
-    print({X.columns[i] : round(model.feature_importances_[i], 3) for i in range(len(X.columns))})
-        
+def feature_importance(X, model, name):
+    feature_imp = pd.Series(model.feature_importances_, index=X.columns).sort_values(ascending=False)
+    fig, ax = plt.subplots(figsize=(10,10))
+    sns.barplot(x=feature_imp, y=feature_imp.index)
+    plt.title('Features importance for ' + name)
+
         
 def model_decision_boundary(models, X, y):
     print('Approximate decision boundaries for the different models')
