@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, roc_curve
 
 def feature_importance(X, model):
     fig, ax = plt.subplots(figsize=(10, 10))
@@ -33,8 +33,13 @@ def model_decision_boundary(models, X, y):
         ax.set_title(algo)
         
 def report(X, Y, models):
+    scores = []
     for algo, model in models:
         print('Algorithm:', algo)
         rep = classification_report(y_true=Y, y_pred=model.predict(X))
         print(rep)
         print()
+        rep_dict = classification_report(y_true=Y, y_pred=model.predict(X), output_dict=True)
+        scores += [(rep_dict['accuracy'], algo)]
+    best_model = max(scores)
+    print('Best model is {} with accuracy of {}'.format(best_model[1], best_model[0])
