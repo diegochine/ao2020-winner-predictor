@@ -92,10 +92,12 @@ def compute_elo_rankings(data):
 
 def unify_data(X,
                features_to_drop=[],
-               features_to_add=['elo', 'diff', 'top10']):
+               features_to_add=['elo', 'diff', 'top10', 'age',]):
     
-    X['P1Age'] = ((X['Date'] - X['WBD']).dt.days)/365.25
-    X['P2Age'] = ((X['Date'] - X['LBD']).dt.days)/365.25
+    # Compute age before dropping the date column
+    if 'age' in features_to_add:
+        X['P1Age'] = ((X['Date'] - X['WBD']).dt.days)/365.25
+        X['P2Age'] = ((X['Date'] - X['LBD']).dt.days)/365.25
     
     # Drop unuseful columns
     if any(f not in X.columns for f in features_to_drop):
@@ -191,8 +193,8 @@ def preprocess_data(min_date=2011,
         X = X.sort_values(by='Date')
         # Calculating Elo
         r, playersElo = compute_elo_rankings(X)
-        X['WEloCalc'] = r['EloWinner']
-        X['LEloCalc'] = r['EloLoser']
+        X['WElo'] = r['EloWinner']
+        X['LElo'] = r['EloLoser']
         X['ProbaElo'] = r['ProbaElo']
     
     X = unify_data(X, features_to_drop, features_to_add)
@@ -203,6 +205,15 @@ def preprocess_data(min_date=2011,
     cols_to_swap = [f for f in cols_to_swap if f not in features_to_drop]
     cols_swapped = ['LRank', 'WRank', 'LPts', 'WPts','LHand', 'WHand', 'LBHand', 'WBHand']
     cols_swapped = [f for f in cols_swapped if f not in features_to_drop]
+    if 'elo' in features_to_add:
+        cols_to_swap += ['WElo', 'LElo']
+        cols_swapped += ['LElo', 'WElo']
+    if 'top10' in features_to_add:
+        cols_to_swap += ['Top10W', 'Top10L']
+        cols_swapped += ['Top10L', 'Top10W']
+    if 'age' in features_to_add:
+        cols_to_swap += ['P1Age', 'P2Age']
+        cols_swapped += ['P2Age', 'P1Age']
     
     # Generate labels
     if labels == 'duplicate':
@@ -214,10 +225,7 @@ def preprocess_data(min_date=2011,
             tmp['RankDiff'] = -1 * tmp['RankDiff']
             tmp['PtsDiff'] = -1 * tmp['PtsDiff']
         if 'elo' in features_to_add:
-            tmp[['WEloCalc', 'LEloCalc']] = tmp[['LEloCalc', 'WEloCalc']]
             tmp['ProbaElo'] = 1 - tmp['ProbaElo']
-        if 'top10' in features_to_add:
-            tmp[['Top10W', 'Top10L']] = tmp[['Top10L', 'Top10W']]
         tmp.index = np.array(range(X.shape[0] + 1, X.shape[0] * 2 + 1))
         X = pd.concat((X, tmp))
     elif labels == 'random':
@@ -230,10 +238,7 @@ def preprocess_data(min_date=2011,
             random_rows['RankDiff'] = -1 * random_rows['RankDiff']
             random_rows['PtsDiff'] = -1 * random_rows['PtsDiff']
         if 'elo' in features_to_add:
-            random_rows[['WEloCalc', 'LEloCalc']] = random_rows[['LEloCalc', 'WEloCalc']]
             random_rows['ProbaElo'] = 1 - random_rows['ProbaElo']
-        if 'top10' in features_to_add:
-            random_rows[['Top10W', 'Top10L']] = random_rows[['Top10L', 'Top10W']]
         X.update(random_rows)
         for i in random_rows.index:
             Y[i] = 1 - Y[i]
