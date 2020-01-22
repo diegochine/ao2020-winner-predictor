@@ -154,7 +154,7 @@ def build_bagging_classifier(X_train, Y_train, X_valid, Y_valid, draw_graphs=Tru
 def build_adaboost(X_train, Y_train, X_valid, Y_valid, draw_graphs=True):
     scores = {}
     n_estimators = list(range(50, 501, 50))
-    learning_rates = (0.1, 0.25, 0.50, 0.75, 1.0)
+    learning_rates = (0.01, 0.05, 0.1, 0.25, 0.50)
     for n_est in n_estimators:
         for learning_rate in learning_rates:
             for criterion in ('gini', 'entropy'):

@@ -14,7 +14,6 @@ def feature_importance(X, model, name):
         
 def model_decision_boundary(models, X, y):
     print('Approximate decision boundaries for the different models')
-    sns.set(style="white")
     # We need PCA to make the data 2D (approximately)
     pca = PCA(n_components=2)
     pca.fit(X)
